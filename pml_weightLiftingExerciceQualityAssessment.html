@@ -70,7 +70,7 @@ img {
 
 <div id="executive-summary" class="section level2">
 <h2><strong>Executive Summary</strong></h2>
-<p>The advent of smart devices opens the door to multiple possibilities, among which monitoring people’s physical exercice using inexpensive devices such as Jawbone Up, Nike FuelBand and Fitbit. Indeed, ones can qualify the effectiveness of their activity based on the feedbacks provided by these devices. In this study, the quality of weight lifting (unilateral dumbbell biceps curl) exercises is evaluated with the state-of-art random forest classifier. The set up we use to build our random forest provide results that are very close to a perfect classification with very a low generalization error rate.</p>
+<p>The advent of smart devices opens the door to multiple possibilities, among which monitoring people’s physical exercice using inexpensive devices such as Jawbone Up, Nike FuelBand and Fitbit. Indeed, ones can qualify the effectiveness of their activity based on the feedbacks provided by these devices. In this study, the quality of weight lifting (unilateral dumbbell biceps curl) exercises is evaluated with the state-of-art random forest classifier. The set up we use to build our random forest provides results that are very close to a perfect classification with very a low generalization error rate.</p>
 </div>
 <div id="description-of-the-data" class="section level2">
 <h2><strong>1. Description of the data</strong></h2>
@@ -175,33 +175,33 @@ predRf &lt;- predict(modfitrf, dfTestCv)</code></pre>
 ##           Reference
 ## Prediction    A    B    C    D    E
 ##          A 2230    1    0    0    1
-##          B   12 1505    1    0    0
-##          C    0    6 1362    0    0
-##          D    0    0    3 1283    0
-##          E    0    0    0    1 1441
+##          B    6 1512    0    0    0
+##          C    0   12 1356    0    0
+##          D    0    0    2 1284    0
+##          E    0    0    0    0 1442
 ## 
 ## Overall Statistics
 ##                                           
-##                Accuracy : 0.9968          
-##                  95% CI : (0.9953, 0.9979)
-##     No Information Rate : 0.2858          
+##                Accuracy : 0.9972          
+##                  95% CI : (0.9958, 0.9982)
+##     No Information Rate : 0.285           
 ##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
 ##                                           
-##                   Kappa : 0.996           
+##                   Kappa : 0.9965          
 ##  Mcnemar's Test P-Value : NA              
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9946   0.9954   0.9971   0.9992   0.9993
-## Specificity            0.9996   0.9979   0.9991   0.9995   0.9998
-## Pos Pred Value         0.9991   0.9914   0.9956   0.9977   0.9993
-## Neg Pred Value         0.9979   0.9989   0.9994   0.9998   0.9998
-## Prevalence             0.2858   0.1927   0.1741   0.1637   0.1838
-## Detection Rate         0.2842   0.1918   0.1736   0.1635   0.1837
+## Sensitivity            0.9973   0.9915   0.9985   1.0000   0.9993
+## Specificity            0.9996   0.9991   0.9982   0.9997   1.0000
+## Pos Pred Value         0.9991   0.9960   0.9912   0.9984   1.0000
+## Neg Pred Value         0.9989   0.9979   0.9997   1.0000   0.9998
+## Prevalence             0.2850   0.1944   0.1731   0.1637   0.1839
+## Detection Rate         0.2842   0.1927   0.1728   0.1637   0.1838
 ## Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
-## Balanced Accuracy      0.9971   0.9967   0.9981   0.9994   0.9996</code></pre>
-<p>The table of results shows that the fitted model has an accuracy of 99.68% (out of sample error is then 0.32%). This accuracy based on an unseen dataset (cross validation) corroborates the OOB error rate estimated earlier from the training step. So, the designed model has an unbiased estimate of the test set error which, in turn, insures a very good rate of generalization.</p>
+## Balanced Accuracy      0.9985   0.9953   0.9983   0.9998   0.9997</code></pre>
+<p>The table of results shows that the fitted model has an accuracy of 99.72% (out of sample error is then 0.28%). This accuracy based on an unseen dataset (cross validation) corroborates the OOB error rate estimated earlier from the training step. So, the designed model has an unbiased estimate of the test set error which, in turn, insures a very good rate of generalization.</p>
 <pre class="r"><code>library(pROC)
 predictions &lt;- as.numeric(predict(modfitrf, dfTestCv, type='response'))
 mcauc &lt;- multiclass.roc(dfTestCv$classe, predictions, percent=TRUE); mcauc</code></pre>
@@ -210,8 +210,8 @@ mcauc &lt;- multiclass.roc(dfTestCv$classe, predictions, percent=TRUE); mcauc</c
 ## multiclass.roc.default(response = dfTestCv$classe, predictor = predictions,     percent = TRUE)
 ## 
 ## Data: predictions with 5 levels of dfTestCv$classe: A, B, C, D, E.
-## Multi-class area under the curve: 99.9%</code></pre>
-<p>Also, our model’s multi-class AUC value of 0.999 is very close to 1 which is the AUC of a perfect classifier.</p>
+## Multi-class area under the curve: 99.91%</code></pre>
+<p>Also, our model’s multi-class AUC value of 0.9991 is very close to 1 which is the AUC of a perfect classifier.</p>
 <ul>
 <li><em>Variable importance</em></li>
 </ul>
