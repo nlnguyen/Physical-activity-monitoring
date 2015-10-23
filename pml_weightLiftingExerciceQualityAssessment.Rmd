@@ -1,0 +1,230 @@
+---
+title: "Qualitative Assessment of Weight Lifting Exercices"
+author: "Ngoc Lan Nguyen"
+date: "October 10, 2015"
+output: html_document
+---
+
+```{r setinitialoptions, echo=FALSE, message=FALSE}
+require(knitr);
+require(rmarkdown);
+require(caret);
+require(randomForest)
+
+opts_chunk$set(message=FALSE)
+```
+
+
+## **Executive Summary**
+
+The advent of smart devices opens the door to multiple possibilities, among which monitoring people's physical exercice using inexpensive devices such as Jawbone Up, Nike FuelBand and Fitbit. Indeed, ones can qualify the effectiveness of their activity based on the feedbacks provided by these devices. In this study, the quality of weight lifting (unilateral dumbbell biceps curl) exercises is evaluated with the state-of-art random forest classifier. The set up we use to build our random forest provide results that are very close to a perfect classification with very a low generalization error rate.
+   
+   
+## **1. Description of the data**   
+
+The raw data sets are collected from four Razor's sensors Inertial Measurement Units (IMU)[<sup>(1)</sup>](#ref) which provide, each, three-axes acceleration, gyroscope and magnometer data sampled at a rate of 45 Hz. These IMUs are attached to the dumb bell and the subject's hand, arm and lumbar. Each participant is asked to execute a serie of unilateral dumbbell biceps curl exercises according to five different ways:   
+
+* A: Exactly according to the specification;    
+* B: Throwing the elbows to the front;   
+* C: Lifting the dumbbell only half way;   
+* D: Lowering the dumbbell only half way;   
+* E: Throwing the hips to the front.   
+
+Except the class A, the other four classes correspond to common mistakes people make while executing this exercise.
+
+
+## **2. Getting the data**  
+
+The data as described above comes from the research and development group of [groupware technologies][1]. This dataset is splitted into the training and the testing sets. These can be obtained from here:
+
+training data: [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv]   
+testing data: [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv]   
+
+To obtain these data sets, the following code snippets can be used:   
+   
+```{r datadownload, eval=FALSE}
+fileUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(fileUrl, destfile="pml-training.csv", method="wget")
+fileUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(fileUrl, destfile="pml-testing.csv", method="wget")
+```
+
+   
+## **3. Data Cleaning**   
+   
+```{r datacleaning, warning=FALSE}     
+# Load the data from file (Note: This supposes you've already downloaded the datasets)
+dfTraining <- read.csv("pml-training.csv", stringsAsFactors=F, header=T)
+dfTesting <- read.csv("pml-testing.csv", stringsAsFactors=F, header=T)
+
+myVars <- !(names(dfTraining) %in% "classe")
+dfTraining$classe <- as.factor(dfTraining$classe)     # set the outcome as a factor variable
+dfTraining[, myVars] <- apply(dfTraining[, myVars], 2, as.numeric)
+dfTesting[, myVars] <- apply(dfTesting[, myVars], 2, as.numeric)
+```
+
+```{r datadim, echo=FALSE}
+dimTrain <- dim(dfTraining)
+dimTest <- dim(dfTesting)
+```
+
+```{r varnames, echo=FALSE}
+varnames <- names(dfTraining)
+```
+
+
+An exploratory data analysis reveals that the datasets train and test have, respectively, `r dimTrain[1]` and `r dimTest[1]` observations with `r dimTrain[2]` variables for both of them. The variable names are listed in [Appendix A1](#appa1). Among those, some variables are not relevant in describing the physical movement executions. They are:  
+   
+- the "gate keepers" variables (*X*, *user_name*, *new_window* and *num_window*) and,   
+- the timestamp variables (*raw_timestamp_part1, raw_timestamp_part2* and *cvtd_timestamp*).   
+   
+Therefore, they can be dropped. Also, the summary variables (ie. those with the suffixes *min, max, avg, stddev, var, kurtosis, skewness* and *amplitude*) are derived features that were computed only when a new_window is triggered and, most of the time, their values are not defined (NA). They are thus not much useful for the modelization.   
+   
+   
+The following code is used to get rid off these unnecessary variables to get the tidy dataset.
+
+```{r datatidy}
+
+toMatch <- c("kurtosis", "skewness", "max", "min", "amplitude", "var", "avg", "stddev", 
+             "X", "timestamp", "user_name", "window")
+toRemove <- grep(paste(toMatch,collapse="|"), names(dfTraining), value=TRUE)
+dfTraining <- dfTraining[, !(names(dfTraining) %in% toRemove)]
+dfTesting <- dfTesting[, !(names(dfTesting) %in% toRemove)]
+
+```
+
+```{r echo=FALSE}
+dimTrain <- dim(dfTraining)
+dimTest <- dim(dfTesting)
+```
+
+The datasets that result from this cleaning process is now reduced to `r dimTrain[2]` variables for both the train and test sets.
+
+
+## **4. Model Building**   
+
+#### **4.1. Preprocessing**
+
+Before choosing and fitting a model to the training dataset, it could be important to preprocess its predictors. This is an important part in the data preparation since it can reduce the complexity of the algorithm being considered. In our context, the predictors are analyzed in order to detect eventually weak variances and those which fall in such a case are removed.
+
+```{r nzv}
+myVars <- !(names(dfTraining) %in% "classe")
+nzv <- nearZeroVar(dfTraining[, myVars], saveMetrics=TRUE)
+if ( any(nzv$nzv) ){
+      dfTraining <- dfTraining[, nzv$nzv]
+}
+```
+   
+Other steps could include the standardization of the dataset. However, this step depends on the algorith under consideration. As we will mention later, our modelization involves the random forest algorithm which bases its decision on individual features at each split (node) and thus, monotonic transformations of features will appear invariant in the decision. The standardization process is therefore not necessary in this case.    
+
+#### **4.2. Data Slicing**   
+   
+Since the training dataset we have at our disposal is a medium size, we decide to split it into a 60% (training) - 40% (validation) proportion for the prediction study. The following code snippet permits to do that:   
+   
+```{r dataslicing}
+# split the training data set for cross-validation
+tIndices <- createDataPartition(y=dfTraining$classe, p=0.6, list=FALSE)
+dfTrainCv <- dfTraining[tIndices,]
+dfTestCv <- dfTraining[-tIndices,]
+```
+
+
+#### **4.3. Train**   
+   
+In our approach, the random forest algorithm is adopted for the classification due to its numerous properties; in particular, it is robust to high variances (ie. it has a good rate of generalization), can efficiently decorrelate the trees (as compared to the bagging method), can estimate the feature's importances and provides usually satisfying results. To train the classifier, the bootstrap resampling with 25 sample sets is used and the process is repeated 25 times. This approach is implemented as follow:
+   
+```{r modfitload, eval=TRUE, echo=FALSE}
+#----------------------------------------------------------------------------------------------------------------
+# IMPORTANT: IF YOU WANT TO RE-RUN THE TRAINING PROCESS, THEN SET (EVAL=TRUE) FOR THE CHUNK BELOW ('modfitcomp').
+# IN THIS CASE, SET THIS CHUNK'S OPTION EVAL=FALSE.
+#----------------------------------------------------------------------------------------------------------------
+modfitrf <- readRDS("pml_modFitRf-53var_boot_importanceTRUE_proximityTRUE.rds")
+```
+   
+```{r modfitcomp, eval=FALSE}
+set.seed(1248)
+ptime <- system.time(modfitrf <- randomForest(classe ~ ., data=dfTrainCv, importance=TRUE, proximity=TRUE)))
+```
+
+```{r}   
+modfitrf
+```
+   
+The fitted model has an estimate of the overall out-of-bag (OOB) error rate of `r round(median(modfitrf$err.rate[,'OOB'])*100, 2)`%, which is quite good. In random forest, the OOB error rate is equivalent to the out of sample error that is estimated internally as the forest is built. Thus, we can anticipate that the out of sample error will be the same magnitude order as the OOB error.    
+   
+
+#### **4.4. Cross-validation and Result Analysis**   
+   
+Although cross validation step is not needed for the random forest algorithm (it is estimated internally with the OOB samples during the run)[<sup>(2)</sup>](#ref), we want to include anyway this extra step to verify the generalization ability of the fitted model from an external validation set. The prediction on the validation set is done as follow:   
+   
+```{r cval, eval=TRUE}
+set.seed(13579)
+predRf <- predict(modfitrf, dfTestCv)
+```
+
+   
+* *Confusion Matrix*   
+
+   
+```{r cmat}
+cm <- confusionMatrix(dfTestCv$classe, predRf); cm
+```
+   
+The table of results shows that the fitted model has an accuracy of `r round(cm$overall['Accuracy']*100, 2)`% (out of sample error is then `r 100-round(cm$overall['Accuracy']*100, 2)`%). This accuracy based on an unseen dataset (cross validation) corroborates the OOB error rate estimated earlier from the training step. So, the designed model has an unbiased estimate of the test set error which, in turn, insures a very good rate of generalization.
+
+
+```{r mcauc}
+library(pROC)
+predictions <- as.numeric(predict(modfitrf, dfTestCv, type='response'))
+mcauc <- multiclass.roc(dfTestCv$classe, predictions, percent=TRUE); mcauc
+```
+   
+Also, our model's multi-class AUC value of `r round(mcauc$auc, 2)/100` is very close to 1 which is the AUC of a perfect classifier.
+   
+   
+* *Variable importance*   
+   
+One interesting fact with the random forest algorithm (as CART algorithms in general) is that each predictor's importance can be deduced, based on an impurity measure. [Appendix A2](#appa2) lists the variable importances ordered according to the Gini impurity measure (meanDecreaseGini). This measure quantifies the *randomness of misclassification* (impurity) a given variable can influence on the impurity decrease. Simply speaking, the lower its value, the more important role this variable has in the correct classification. This is convenient in a feature selection context.   
+
+
+## **5. Prediction on the test set**   
+   
+The 20 samples from the test dataset are classified as followed:   
+   
+```{r}
+predtest <- predict(modfitrf, dfTesting);
+predtest
+```   
+
+   
+## <a name="ref"></a>**References**   
+   
+1. Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. "*[Qualitative Activity Recognition of Weight Lifting Exercises][2]*", Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.   
+   
+2. Leo Brieman and Adele Cutler, [Random Forest][3]   
+   
+   
+## **Appendices**   
+   
+   
+#### <a name="appa1"></a>A1. Variable names   
+   
+```{r echo=FALSE}   
+varnames
+```
+   
+   
+#### <a name="appa2"></a>A2. Variable Importance
+   
+```{r varimp, echo=FALSE}
+varImportance <- as.data.frame(modfitrf$importance)
+varImportance <- varImportance[with(varImportance, order(MeanDecreaseGini)),]
+kable(varImportance)
+```
+   
+   
+[1]: http://groupware.les.inf.puc-rio.br/har "groupware technologies"   
+[2]: http://groupware.les.inf.puc-rio.br/work.jsf?p1=11201 "Qualitative Activity Recognition of Weight Lifting Exercises"
+[3]: https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr "Random Forest"
+
+
