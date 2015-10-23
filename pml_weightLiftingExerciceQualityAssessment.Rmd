@@ -17,7 +17,7 @@ opts_chunk$set(message=FALSE)
 
 ## **Executive Summary**
 
-The advent of smart devices opens the door to multiple possibilities, among which monitoring people's physical exercice using inexpensive devices such as Jawbone Up, Nike FuelBand and Fitbit. Indeed, ones can qualify the effectiveness of their activity based on the feedbacks provided by these devices. In this study, the quality of weight lifting (unilateral dumbbell biceps curl) exercises is evaluated with the state-of-art random forest classifier. The set up we use to build our random forest provide results that are very close to a perfect classification with very a low generalization error rate.
+The advent of smart devices opens the door to multiple possibilities, among which monitoring people's physical exercice using inexpensive devices such as Jawbone Up, Nike FuelBand and Fitbit. Indeed, ones can qualify the effectiveness of their activity based on the feedbacks provided by these devices. In this study, the quality of weight lifting (unilateral dumbbell biceps curl) exercises is evaluated with the state-of-art random forest classifier. The set up we use to build our random forest provides results that are very close to a perfect classification with very a low generalization error rate.
    
    
 ## **1. Description of the data**   
